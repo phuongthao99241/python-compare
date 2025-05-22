@@ -26,11 +26,11 @@ def clean_and_prepare(uploaded_file):
     # Neue Spaltennamen aufbauen
     columns_combined = []
     for i in range(len(header_1)):
-        if i <= 8:  # Erste Spalten behalten
+        if i <= 9:  # Erste Spalten behalten
             columns_combined.append(header_2[i])
         else:
             beschreibung = header_1[i]
-            if pd.isna(beschreibung) and i > 8:
+            if pd.isna(beschreibung) and i > 9:
                 beschreibung = columns_combined[i - 1].split(" - ")[0]
             konto_nr = header_3[i]
             soll_haben = header_4[i]
