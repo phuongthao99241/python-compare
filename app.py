@@ -113,6 +113,8 @@ with tab_de:
             results.append(row)
 
         df_diff = pd.DataFrame(results)
+        df_diff_filtered = df_diff[df_diff["Unterschiede"] != "Keine"]
+
         st.success(f"✅ Vergleich abgeschlossen. {len(df_diff)} Zeilen analysiert.")
         st.dataframe(df_diff, use_container_width=True)
 
@@ -191,6 +193,7 @@ with tab_en:
             results.append(row)
 
         df_diff = pd.DataFrame(results)
+        df_diff_filtered = df_diff[df_diff["Differences"] != "None"]
         st.success(f"✅ Comparison complete. {len(df_diff)} rows analyzed.")
         st.dataframe(df_diff, use_container_width=True)
 
