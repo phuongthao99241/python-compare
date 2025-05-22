@@ -50,6 +50,32 @@ def clean_and_prepare(uploaded_file):
 if file_test and file_prod:
     df_test = clean_and_prepare(file_test)
     df_prod = clean_and_prepare(file_prod)
+    
+    # 👉 Download-Buttons für bereinigte Einzeldateien (optional)
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        output_test = io.BytesIO()
+        with pd.ExcelWriter(output_test, engine="xlsxwriter") as writer:
+            df_test.reset_index().to_excel(writer, index=False, sheet_name="Bereinigt_Test")
+        st.download_button(
+            label="⬇️ Bereinigte Test-Datei herunterladen",
+            data=output_test.getvalue(),
+            file_name="bereinigt_test.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    
+    with col2:
+        output_prod = io.BytesIO()
+        with pd.ExcelWriter(output_prod, engine="xlsxwriter") as writer:
+            df_prod.reset_index().to_excel(writer, index=False, sheet_name="Bereinigt_Prod")
+        st.download_button(
+            label="⬇️ Bereinigte Prod-Datei herunterladen",
+            data=output_prod.getvalue(),
+            file_name="bereinigt_prod.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
 
     all_keys = sorted(set(df_test.index).union(set(df_prod.index)))
     common_cols = df_test.columns.intersection(df_prod.columns).difference(["Vertrags-ID", "Asset-ID"])
