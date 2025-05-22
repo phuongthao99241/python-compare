@@ -16,33 +16,35 @@ def clean_and_prepare(uploaded_file):
     df_raw = pd.read_excel(uploaded_file, sheet_name=0, header=None)
 
     # Header-Zeilen extrahieren
-    header_1 = df_raw.iloc[0]  # Kontobezeichnung
-    header_2 = df_raw.iloc[1]  # Vertrags-ID etc.
+    header_1 = df_raw.iloc[0]  # Kontobezeichnung (Themenblock)
+    header_2 = df_raw.iloc[1]  # Detailbezeichnung
     header_3 = df_raw.iloc[2]  # Kontonummer
     header_4 = df_raw.iloc[3]  # Soll/Haben
 
-    # 🛠️ Leere Kontonummern nach rechts auffüllen
+    # Leere Kontonummern nach rechts auffüllen
     header_3 = header_3.fillna(method="ffill")
 
-    # Datenbereich extrahieren
+    # Daten ab Zeile 5
     df_data = df_raw.iloc[4:].copy()
     df_data.reset_index(drop=True, inplace=True)
 
-    # Neue Spaltennamen generieren
+    # Neue Spaltennamen
     columns_combined = []
     for i in range(len(header_1)):
-        if i <= 9:  # Vertrags-ID bis Währung
-            columns_combined.append(header_2[i])
+        if i <= 9:
+            columns_combined.append(header_2[i])  # Vertrags-ID bis Währung
         else:
-            rohtext = str(header_1[i]).replace("\n", " ").strip()
-            beschreibung = re.sub(r'\s+', ' ', rohtext)
+            part1 = re.sub(r'\s+', ' ', str(header_1[i]).replace("\n", " ").strip())
+            part2 = re.sub(r'\s+', ' ', str(header_2[i]).replace("\n", " ").strip())
+            konto_nr = str(header_3[i]).strip()
+            soll_haben = str(header_4[i]).strip()
 
-            if beschreibung == '' or beschreibung.lower() == 'nan':
-                beschreibung = columns_combined[i - 1].split(" - ")[0]
+            if not part1 or part1.lower() == 'nan':
+                part1 = columns_combined[i - 1].split(" - ")[0]
+            if not part2 or part2.lower() == 'nan':
+                part2 = ''
 
-            konto_nr = header_3[i]
-            soll_haben = header_4[i]
-            name = f"{beschreibung} - {konto_nr} - {soll_haben}"
+            name = f"{part1} - {part2} - {konto_nr} - {soll_haben}".strip(" -")
             columns_combined.append(name)
 
     df_data.columns = columns_combined
@@ -54,12 +56,12 @@ def clean_and_prepare(uploaded_file):
 
     return df_data.set_index("Key")
 
-# Wenn beide Dateien vorhanden sind
+# Wenn beide Dateien hochgeladen wurden
 if file_test and file_prod:
     df_test = clean_and_prepare(file_test)
     df_prod = clean_and_prepare(file_prod)
 
-    # 👉 Download bereinigter Dateien
+    # Download bereinigter Dateien
     col1, col2 = st.columns(2)
     with col1:
         output_test = io.BytesIO()
@@ -122,7 +124,7 @@ if file_test and file_prod:
     st.success(f"✅ Vergleich abgeschlossen. {len(df_diff)} Zeilen analysiert.")
     st.dataframe(df_diff, use_container_width=True)
 
-    # Vergleichs-Datei zum Download
+    # Vergleichsergebnis herunterladen
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df_diff.to_excel(writer, index=False, sheet_name="Vergleich")
