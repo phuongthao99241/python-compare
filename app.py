@@ -52,7 +52,25 @@ if file_test and file_prod:
     df_test = clean_and_prepare(file_test)
     df_prod = clean_and_prepare(file_prod)
 
-    # Download bereinigter Dateien
+    # 🔍 Spaltenvergleich (Konten-Differenzen)
+    columns_test = set(df_test.columns) - {"Vertrags-ID", "Asset-ID", "Key"}
+    columns_prod = set(df_prod.columns) - {"Vertrags-ID", "Asset-ID", "Key"}
+
+    only_in_test = sorted(columns_test - columns_prod)
+    only_in_prod = sorted(columns_prod - columns_test)
+
+    if only_in_test:
+        st.warning("⚠️ Spalten **nur in Test**:")
+        st.code("\n".join(only_in_test), language="")
+
+    if only_in_prod:
+        st.warning("⚠️ Spalten **nur in Prod**:")
+        st.code("\n".join(only_in_prod), language="")
+
+    if not only_in_test and not only_in_prod:
+        st.info("✅ Alle Spalten stimmen überein.")
+
+    # 👉 Download bereinigter Dateien
     col1, col2 = st.columns(2)
     with col1:
         output_test = io.BytesIO()
@@ -65,25 +83,6 @@ if file_test and file_prod:
         with pd.ExcelWriter(output_prod, engine="xlsxwriter") as writer:
             df_prod.reset_index().to_excel(writer, index=False, sheet_name="Bereinigt_Prod")
         st.download_button("⬇️ Bereinigte Prod-Datei", data=output_prod.getvalue(), file_name="bereinigt_prod.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-    # Spaltenvergleich (welche Konten fehlen)
-    columns_test = set(df_test.columns) - {"Vertrags-ID", "Asset-ID", "Key"}
-    columns_prod = set(df_prod.columns) - {"Vertrags-ID", "Asset-ID", "Key"}
-    
-    only_in_test = sorted(columns_test - columns_prod)
-    only_in_prod = sorted(columns_prod - columns_test)
-    
-    if only_in_test:
-        st.warning("⚠️ Spalten **nur in Test**:")
-        st.code("\n".join(only_in_test), language="")
-    
-    if only_in_prod:
-        st.warning("⚠️ Spalten **nur in Prod**:")
-        st.code("\n".join(only_in_prod), language="")
-    
-    if not only_in_test and not only_in_prod:
-        st.info("✅ Alle Spalten stimmen überein.")
-
 
     # Vergleich durchführen
     all_keys = sorted(set(df_test.index).union(set(df_prod.index)))
@@ -122,6 +121,7 @@ if file_test and file_prod:
     st.success(f"✅ Vergleich abgeschlossen. {len(df_diff)} Zeilen analysiert.")
     st.dataframe(df_diff, use_container_width=True)
 
+    # Vergleichsergebnis herunterladen
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df_diff.to_excel(writer, index=False, sheet_name="Vergleich")
