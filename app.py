@@ -3,10 +3,13 @@ import pandas as pd
 import io
 import re
 
-# 🌐 Sprachwahl
+# ✅ Muss als erstes Streamlit-Kommando kommen
 st.set_page_config(page_title="Excel Vergleichstool", layout="wide")
+
+# 🌐 Sprache wählen
 lang = st.sidebar.selectbox("🌐 Sprache / Language", options=["Deutsch", "English"], index=0)
 
+# 🔤 Textbausteine
 TEXTE = {
     "Deutsch": {
         "title": "🔍 Vertrags-/Asset-Datenvergleich (Test vs. Prod)",
@@ -38,12 +41,11 @@ TEXTE = {
     }
 }
 t = TEXTE[lang]
+col_id = t["contract_id"]
+col_asset = t["asset_id"]
 
-# 🔧 Layout
-
+# 🧾 UI
 st.title(t["title"])
-
-# 📂 Upload
 file_test = st.file_uploader(t["upload_test"], type=["xlsx"], key="test")
 file_prod = st.file_uploader(t["upload_prod"], type=["xlsx"], key="prod")
 
@@ -52,9 +54,9 @@ file_prod = st.file_uploader(t["upload_prod"], type=["xlsx"], key="prod")
 def clean_and_prepare(uploaded_file):
     df_raw = pd.read_excel(uploaded_file, sheet_name=0, header=None)
 
-    header_1 = df_raw.iloc[1]  # Kontobezeichnung
-    header_2 = df_raw.iloc[2]  # Kontonummer
-    header_3 = df_raw.iloc[3]  # Soll/Haben
+    header_1 = df_raw.iloc[1]
+    header_2 = df_raw.iloc[2]
+    header_3 = df_raw.iloc[3]
 
     header_1 = header_1.fillna(method="ffill")
     header_2 = header_2.fillna(method="ffill")
@@ -75,25 +77,25 @@ def clean_and_prepare(uploaded_file):
 
     df_data.columns = columns_combined
 
-    # Schlüssel zur Identifikation
     df_data["Vertrags-ID"] = df_data["Vertrags-ID"].astype(str)
     df_data["Asset-ID"] = df_data["Asset-ID"].astype(str)
     df_data["Key"] = df_data["Vertrags-ID"] + "_" + df_data["Asset-ID"]
 
-    return df_data.set_index("Key")
+    return df_data
 
-# Wenn beide Dateien geladen
+# 🚀 Wenn beide Dateien geladen
 if file_test and file_prod:
     df_test = clean_and_prepare(file_test)
     df_prod = clean_and_prepare(file_prod)
 
-    # 🔄 Spaltennamen übersetzen
-    df_test = df_test.rename(columns={"Vertrags-ID": t["contract_id"], "Asset-ID": t["asset_id"]})
-    df_prod = df_prod.rename(columns={"Vertrags-ID": t["contract_id"], "Asset-ID": t["asset_id"]})
+    # Dynamische Anzeige-Spalten erzeugen
+    df_test_ui = df_test.rename(columns={"Vertrags-ID": col_id, "Asset-ID": col_asset})
+    df_prod_ui = df_prod.rename(columns={"Vertrags-ID": col_id, "Asset-ID": col_asset})
 
     # 🔍 Spaltenvergleich
-    columns_test = set(df_test.columns) - {t["contract_id"], t["asset_id"], "Key"}
-    columns_prod = set(df_prod.columns) - {t["contract_id"], t["asset_id"], "Key"}
+    core_cols = {"Vertrags-ID", "Asset-ID", "Contract ID", "Asset ID", "Key"}
+    columns_test = set(df_test.columns) - core_cols
+    columns_prod = set(df_prod.columns) - core_cols
 
     only_in_test = sorted(columns_test - columns_prod)
     only_in_prod = sorted(columns_prod - columns_test)
@@ -101,38 +103,38 @@ if file_test and file_prod:
     if only_in_test:
         st.warning(t["only_test"])
         st.code("\n".join(only_in_test), language="")
-
     if only_in_prod:
         st.warning(t["only_prod"])
         st.code("\n".join(only_in_prod), language="")
-
     if not only_in_test and not only_in_prod:
         st.info(t["all_match"])
 
-    # 📥 Downloads
+    # 📥 Downloads: bereinigte Dateien
     col1, col2 = st.columns(2)
     with col1:
         output_test = io.BytesIO()
         with pd.ExcelWriter(output_test, engine="xlsxwriter") as writer:
-            df_test.reset_index().to_excel(writer, index=False, sheet_name="Bereinigt_Test")
+            df_test_ui.to_excel(writer, index=False, sheet_name="Bereinigt_Test")
         st.download_button(t["download_test"], data=output_test.getvalue(), file_name="bereinigt_test.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
     with col2:
         output_prod = io.BytesIO()
         with pd.ExcelWriter(output_prod, engine="xlsxwriter") as writer:
-            df_prod.reset_index().to_excel(writer, index=False, sheet_name="Bereinigt_Prod")
+            df_prod_ui.to_excel(writer, index=False, sheet_name="Bereinigt_Prod")
         st.download_button(t["download_prod"], data=output_prod.getvalue(), file_name="bereinigt_prod.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     # 🔍 Vergleich
+    df_test["Key"] = df_test["Vertrags-ID"] + "_" + df_test["Asset-ID"]
+    df_prod["Key"] = df_prod["Vertrags-ID"] + "_" + df_prod["Asset-ID"]
+    df_test = df_test.set_index("Key")
+    df_prod = df_prod.set_index("Key")
+
     all_keys = sorted(set(df_test.index).union(set(df_prod.index)))
-    common_cols = df_test.columns.intersection(df_prod.columns).difference([t["contract_id"], t["asset_id"]])
+    common_cols = df_test.columns.intersection(df_prod.columns).difference(["Vertrags-ID", "Asset-ID", "Contract ID", "Asset ID", "Key"])
 
     results = []
     for key in all_keys:
-        row_result = {
-            t["contract_id"]: key.split("_")[0],
-            t["asset_id"]: "_".join(key.split("_")[1:])
-        }
+        v_id, a_id = key.split("_")[0], "_".join(key.split("_")[1:])
+        row_result = {col_id: v_id, col_asset: a_id}
 
         if key not in df_test.index:
             row_result["Unterschiede"] = "Nur in Prod"
