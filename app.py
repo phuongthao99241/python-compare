@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
+import re
 
 st.set_page_config(page_title="Excel Vergleichstool", layout="wide")
 st.title("🔍 Vertrags-/Asset-Datenvergleich (Test vs. Prod)")
@@ -9,14 +10,14 @@ st.title("🔍 Vertrags-/Asset-Datenvergleich (Test vs. Prod)")
 file_test = st.file_uploader("📂 Test-Datei hochladen", type=["xlsx"], key="test")
 file_prod = st.file_uploader("📂 Prod-Datei hochladen", type=["xlsx"], key="prod")
 
-# Bereinigungsfunktion inkl. Kontonummern-Auffüllung
+# Bereinigungsfunktion
 @st.cache_data
 def clean_and_prepare(uploaded_file):
     df_raw = pd.read_excel(uploaded_file, sheet_name=0, header=None)
 
     # Header-Zeilen extrahieren
-    header_1 = df_raw.iloc[0]  # Kontenbezeichnung
-    header_2 = df_raw.iloc[1]  # Vertrags-ID, Asset-ID etc.
+    header_1 = df_raw.iloc[0]  # Kontobezeichnung
+    header_2 = df_raw.iloc[1]  # Vertrags-ID etc.
     header_3 = df_raw.iloc[2]  # Kontonummer
     header_4 = df_raw.iloc[3]  # Soll/Haben
 
@@ -30,12 +31,15 @@ def clean_and_prepare(uploaded_file):
     # Neue Spaltennamen generieren
     columns_combined = []
     for i in range(len(header_1)):
-        if i <= 9:  # Metadaten-Spalten (Vertrags-ID bis Währung)
+        if i <= 9:  # Vertrags-ID bis Währung
             columns_combined.append(header_2[i])
         else:
-            beschreibung = header_1[i]
-            if pd.isna(beschreibung):
+            rohtext = str(header_1[i]).replace("\n", " ").strip()
+            beschreibung = re.sub(r'\s+', ' ', rohtext)
+
+            if beschreibung == '' or beschreibung.lower() == 'nan':
                 beschreibung = columns_combined[i - 1].split(" - ")[0]
+
             konto_nr = header_3[i]
             soll_haben = header_4[i]
             name = f"{beschreibung} - {konto_nr} - {soll_haben}"
@@ -78,7 +82,7 @@ if file_test and file_prod:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-    # Vergleich
+    # Vergleich durchführen
     all_keys = sorted(set(df_test.index).union(set(df_prod.index)))
     common_cols = df_test.columns.intersection(df_prod.columns).difference(["Vertrags-ID", "Asset-ID"])
 
