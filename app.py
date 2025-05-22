@@ -29,7 +29,7 @@ def clean_and_prepare(uploaded_file):
     # Spaltennamen aufbauen
     columns_combined = []
     for i in range(len(header_1)):
-        if i <= 9:
+        if i < 9:
             columns_combined.append(header_1[i])  # Vertrags-ID, Asset-ID, ...
         else:
             beschreibung = re.sub(r'\s+', ' ', str(header_1[i]).strip())
