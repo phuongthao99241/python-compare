@@ -34,7 +34,7 @@ def clean_and_prepare(uploaded_file):
                 beschreibung = columns_combined[i - 1].split(" - ")[0]
             konto_nr = header_3[i]
             soll_haben = header_4[i]
-            name = f"{beschreibung} - {konto_nr}_IFRS16 - {soll_haben}"
+            name = f"{beschreibung} - {konto_nr} - {soll_haben}"
             columns_combined.append(name)
 
     df_data.columns = columns_combined
