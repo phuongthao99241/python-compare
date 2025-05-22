@@ -4,7 +4,7 @@ import io
 import re
 
 # 🌐 Sprachwahl
-st.set_page_config(page_title=t["title"], layout="wide")
+st.set_page_config(page_title="Excel Vergleichstool", layout="wide")
 lang = st.sidebar.selectbox("🌐 Sprache / Language", options=["Deutsch", "English"], index=0)
 
 TEXTE = {
