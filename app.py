@@ -1,4 +1,3 @@
-# compare_app.py
 import streamlit as st
 import pandas as pd
 import io
@@ -10,22 +9,47 @@ st.title("🔍 Vertrags-/Asset-Datenvergleich (Test vs. Prod)")
 file_test = st.file_uploader("📂 Test-Datei hochladen", type=["xlsx"], key="test")
 file_prod = st.file_uploader("📂 Prod-Datei hochladen", type=["xlsx"], key="prod")
 
-# Hilfsfunktion zum Einlesen und Vorverarbeiten
+# Bereinigungsfunktion
 @st.cache_data
-def process_excel(uploaded_file):
+def clean_and_prepare(uploaded_file):
     df_raw = pd.read_excel(uploaded_file, sheet_name=0, header=None)
-    df_clean = df_raw.iloc[3:].copy()
-    df_clean.columns = df_raw.iloc[0]
-    df_clean.reset_index(drop=True, inplace=True)
-    df_clean["Vertrags-ID"] = df_clean["Vertrags-ID"].astype(str)
-    df_clean["Asset-ID"] = df_clean["Asset-ID"].astype(str)
-    df_clean["Key"] = df_clean["Vertrags-ID"] + "_" + df_clean["Asset-ID"]
-    return df_clean.set_index("Key")
 
-# Wenn beide Dateien hochgeladen wurden
+    # Header-Zeilen extrahieren
+    header_1 = df_raw.iloc[0]  # Kontenbezeichnung
+    header_2 = df_raw.iloc[1]  # Vertrags-ID etc.
+    header_3 = df_raw.iloc[2]  # Konto-Nummer
+    header_4 = df_raw.iloc[3]  # Soll/Haben
+
+    df_data = df_raw.iloc[4:].copy()
+    df_data.reset_index(drop=True, inplace=True)
+
+    # Neue Spaltennamen aufbauen
+    columns_combined = []
+    for i in range(len(header_1)):
+        if i <= 8:  # Erste Spalten behalten
+            columns_combined.append(header_2[i])
+        else:
+            beschreibung = header_1[i]
+            if pd.isna(beschreibung) and i > 8:
+                beschreibung = columns_combined[i - 1].split(" - ")[0]
+            konto_nr = header_3[i]
+            soll_haben = header_4[i]
+            name = f"{beschreibung} - {konto_nr}_IFRS16 - {soll_haben}"
+            columns_combined.append(name)
+
+    df_data.columns = columns_combined
+
+    # Schlüsselspalte
+    df_data["Vertrags-ID"] = df_data["Vertrags-ID"].astype(str)
+    df_data["Asset-ID"] = df_data["Asset-ID"].astype(str)
+    df_data["Key"] = df_data["Vertrags-ID"] + "_" + df_data["Asset-ID"]
+
+    return df_data.set_index("Key")
+
+# Wenn beide Dateien hochgeladen sind
 if file_test and file_prod:
-    df_test = process_excel(file_test)
-    df_prod = process_excel(file_prod)
+    df_test = clean_and_prepare(file_test)
+    df_prod = clean_and_prepare(file_prod)
 
     all_keys = sorted(set(df_test.index).union(set(df_prod.index)))
     common_cols = df_test.columns.intersection(df_prod.columns).difference(["Vertrags-ID", "Asset-ID"])
@@ -64,11 +88,11 @@ if file_test and file_prod:
     df_diff = pd.DataFrame(results)
 
     st.success(f"✅ Vergleich abgeschlossen. {len(df_diff)} Zeilen analysiert.")
-    
-    # Interaktive Tabelle mit Filter
+
+    # Tabelle anzeigen
     st.dataframe(df_diff, use_container_width=True)
 
-    # Download-Link generieren
+    # Download-Link
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df_diff.to_excel(writer, index=False, sheet_name="Vergleich")
