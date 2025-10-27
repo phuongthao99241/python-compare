@@ -43,6 +43,49 @@ def clean_and_prepare(uploaded_file, id_col, asset_col):
 
     return df_data.set_index("Key")
 
+# ===== Nur Logik: Numerische Abweichungen < 1 ignorieren =====
+TOL = 1.0  # fester Schwellwert; Frontend bleibt unverändert
+
+def _try_parse_number(val):
+    """Versucht, val als Zahl zu interpretieren (DE/EN-Formate, Währungs-/%-Zeichen)."""
+    if pd.isna(val):
+        return False, None
+    if isinstance(val, (int, float)) and not isinstance(val, bool):
+        return True, float(val)
+    s = str(val).strip()
+    if s == "":
+        return False, None
+
+    s_clean = (
+        s.replace("\xa0", "")
+         .replace("€", "")
+         .replace("%", "")
+         .replace(" ", "")
+         .replace("’", "")
+         .replace("'", "")
+    )
+    # DE: 1.234,56
+    try:
+        s_de = s_clean.replace(".", "").replace(",", ".")
+        return True, float(s_de)
+    except Exception:
+        pass
+    # EN: 1,234.56
+    try:
+        s_en = s_clean.replace(",", "")
+        return True, float(s_en)
+    except Exception:
+        pass
+    return False, None
+
+def nearly_equal(a, b, tol=TOL) -> bool:
+    """True, wenn a und b numerisch sind und |a-b| < tol."""
+    ok_a, fa = _try_parse_number(a)
+    ok_b, fb = _try_parse_number(b)
+    if ok_a and ok_b:
+        return abs(fa - fb) < tol
+    return False
+# =============================================================
 
 # 🇩🇪 Deutsch
 with tab_de:
@@ -105,9 +148,15 @@ with tab_de:
                     val_prod = df_prod.loc[key, col]
                     if isinstance(val_test, pd.Series): val_test = val_test.iloc[0]
                     if isinstance(val_prod, pd.Series): val_prod = val_prod.iloc[0]
+
                     if pd.isna(val_test) and pd.isna(val_prod):
                         continue
-                    elif pd.isna(val_test) or pd.isna(val_prod) or val_test != val_prod:
+                    # >>> Nur Logik: numerische Abweichungen < 1 ignorieren
+                    if nearly_equal(val_test, val_prod, TOL):
+                        continue
+                    # <<<
+
+                    if pd.isna(val_test) or pd.isna(val_prod) or val_test != val_prod:
                         diffs.append(f"{col}: Test={val_test} / Prod={val_prod}")
                 row["Unterschiede"] = "; ".join(diffs) if diffs else "Keine"
             results.append(row)
@@ -122,7 +171,6 @@ with tab_de:
         with pd.ExcelWriter(out_result, engine="xlsxwriter") as writer:
             df_diff.to_excel(writer, index=False, sheet_name="Vergleich")
         st.download_button("📥 Vergleichsergebnis herunterladen", data=out_result.getvalue(), file_name="vergleichsergebnis.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
 
 # 🇬🇧 English
 with tab_en:
@@ -185,9 +233,15 @@ with tab_en:
                     val_prod = df_prod.loc[key, col]
                     if isinstance(val_test, pd.Series): val_test = val_test.iloc[0]
                     if isinstance(val_prod, pd.Series): val_prod = val_prod.iloc[0]
+
                     if pd.isna(val_test) and pd.isna(val_prod):
                         continue
-                    elif pd.isna(val_test) or pd.isna(val_prod) or val_test != val_prod:
+                    # >>> Logic only: ignore numeric deltas < 1
+                    if nearly_equal(val_test, val_prod, TOL):
+                        continue
+                    # <<<
+
+                    if pd.isna(val_test) or pd.isna(val_prod) or val_test != val_prod:
                         diffs.append(f"{col}: Test={val_test} / Prod={val_prod}")
                 row["Differences"] = "; ".join(diffs) if diffs else "None"
             results.append(row)
