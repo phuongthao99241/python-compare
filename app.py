@@ -17,8 +17,8 @@ def clean_and_prepare(uploaded_file, id_col, asset_col):
     header_2 = df_raw.iloc[2]
     header_3 = df_raw.iloc[3]
 
-    header_1 = header_1.fillna(method="ffill")
-    header_2 = header_2.fillna(method="ffill")
+    header_1 = header_1.ffill()
+    header_2 = header_2.ffill()
 
     df_data = df_raw.iloc[4:].copy()
     df_data.reset_index(drop=True, inplace=True)
