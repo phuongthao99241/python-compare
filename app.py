@@ -37,8 +37,10 @@ def clean_and_prepare(uploaded_file, id_col, asset_col):
     df_data.columns = columns_combined
 
     # Wichtig: IDs als String (Unterstriche bleiben erhalten)
-    df_data[id_col] = df_data[id_col].astype(str)
-    df_data[asset_col] = df_data[asset_col].astype(str)
+    #df_data[id_col] = df_data[id_col].astype(str)
+    #df_data[asset_col] = df_data[asset_col].astype(str)
+    df_data[id_col] = df_data[id_col].fillna("").astype(str)
+    df_data[asset_col] = df_data[asset_col].fillna("").astype(str)
 
     # ✅ FIX: MultiIndex statt "Key" String bauen
     return df_data.set_index([id_col, asset_col])
